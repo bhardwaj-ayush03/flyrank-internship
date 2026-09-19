@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ranking Pages for Content Review: A Held-Out-Client Study</title>
+<style>
+:root{--bg:#fff;--fg:#1a1a1a;--mut:#666;--line:#ddd;--acc:#2a5bd7;--bar:#2a5bd7;--base:#c0392b}
+@media (prefers-color-scheme:dark){:root{--bg:#14161a;--fg:#e8e8e8;--mut:#9aa0a6;--line:#333;--acc:#7ea2ff;--bar:#7ea2ff;--base:#ff7b6b}}
+body{background:var(--bg);color:var(--fg);font:17px/1.65 Georgia,serif;max-width:760px;margin:0 auto;padding:24px 18px 80px}
+h1{font-size:1.9rem;line-height:1.25;margin-bottom:.2rem}h2{margin-top:2.2rem;border-bottom:1px solid var(--line);padding-bottom:.3rem;font-size:1.3rem}
+.meta{color:var(--mut);font-size:.95rem}a{color:var(--acc)}
+table{border-collapse:collapse;width:100%;font-size:.92rem;font-family:system-ui,sans-serif;display:block;overflow-x:auto}
+th,td{border-bottom:1px solid var(--line);padding:6px 10px;text-align:left;white-space:nowrap}
+.bar-row{display:flex;align-items:center;gap:10px;margin:6px 0;font-family:system-ui,sans-serif;font-size:.88rem}
+.bar-row .lab{width:150px;flex:none}.bar-track{position:relative;flex:1;height:18px;background:var(--line);border-radius:3px}
+.bar{height:100%;background:var(--bar);border-radius:3px}.basel{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--base)}
+.val{width:44px;text-align:right;flex:none}.note{color:var(--mut);font-size:.88rem;font-family:system-ui,sans-serif}
+code{background:var(--line);padding:1px 5px;border-radius:3px;font-size:.9em}
+</style>
+</head>
+<body>
+<h1>Ranking Pages for Content Review: A Held-Out-Client Study</h1>
+<p class="meta">Lane: Refresh / Content Opportunity Scoring &middot; FlyRank ML Internship, July 2026 cohort &middot; Ayush Bhardwaj</p>
+
+<h2>Abstract</h2>
+<p>Content owners can review only a few pages per cycle, so the question is which pages to look at first. Using the first 14 days of March 2026 for 75,526 pages across 37 anonymized clients, I trained models to rank pages by how likely their average daily impressions were to fall by at least 30% over the next 17 days. Every model was scored on clients it had never seen. A visibility-only baseline performed at chance (AUC 0.46), while gradient boosting reached AUC 0.73 and Precision@50 of 0.94 against a held-out base rate of 0.295. The signal is dominated by early momentum: pages already falling in days 8-14 tend to keep falling. These findings are observed and directional, they rest on one month and a proxy label, and they support review prioritisation rather than any claim about what a refresh would do.</p>
+
+<h2>1. Introduction: the decision</h2>
+<p>A content owner reviews the top 20 to 50 pages per cycle and decides <em>refresh</em>, <em>protect</em> or <em>monitor</em>. A false positive wastes reviewer time; a false negative leaves a real decline unreviewed. The output here is a ranked review queue with a score, a reason code and an action label. It is decision-support, not a prediction that a refresh will help.</p>
+
+<h2>2. Data</h2>
+<p>Release <code>flyrank_pseudonymized_warehouse_release_v20260703</code>, table <code>fact_content_daily_performance</code>, partition month 2026-03 only. Rows with search-console data available only. Pages needed at least 100 impressions in days 1-14 (75,526 pages, 37 clients); pages below that threshold were excluded as too little signal. Product-generated flags were not in the data and were never used. The June 2026 month was not touched. Client identifiers are pseudonymous and are not shown.</p>
+
+<h2>3. Methodology</h2>
+<p><strong>Unit:</strong> one page. <strong>Features (days 1-14 only):</strong> early impressions, early click-through rate, early average position, early active days, early momentum (impressions in days 8-14 vs days 1-7). <strong>Label:</strong> <code>declined_later</code> = average daily impressions in days 15-31 are at least 30% below days 1-14; windows do not overlap; pages with no rows after day 14 count as 0. This is a proxy label.</p>
+<p><strong>Baseline:</strong> rank by log of early impressions (no label-derived inputs). <strong>Models:</strong> depth-3 decision tree, logistic regression, gradient boosting. <strong>Validation:</strong> one client-holdout split (25 training clients, 12 test clients, seed 42), identical for every model. <strong>Leakage check:</strong> I added one outcome-window column (a late/early impression ratio); AUC and Precision@50 jumped to 1.00, which confirms the check works. The column was removed and appears in no reported number.</p>
+
+<h2>4. Results</h2>
+<p>Held-out clients, test base rate 0.295 (red line).</p>
+<div id="bars"></div>
+<table>
+<tr><th>Model</th><th>AUC</th><th>P@20</th><th>P@50</th><th>Ties at rank 50</th></tr>
+<tr><td>Baseline (log impressions)</td><td>0.464</td><td>0.25</td><td>0.26</td><td>0</td></tr>
+<tr><td>Decision tree (depth 3)</td><td>0.635</td><td>0.95</td><td>0.88</td><td>216</td></tr>
+<tr><td>Logistic regression</td><td>0.569</td><td>0.20</td><td>0.18</td><td>1</td></tr>
+<tr><td><strong>Gradient boosting</strong></td><td><strong>0.733</strong></td><td><strong>0.95</strong></td><td><strong>0.94</strong></td><td>1</td></tr>
+</table>
+<p class="note">The tree's Precision@50 is partly tie-order luck (216 pages share its score at rank 50). Gradient boosting has one tie and is the reported model.</p>
+<p><strong>What drives it.</strong> Shuffling early momentum costs 0.166 AUC; the other four features cost 0.045 or less. Decline rate by early-momentum bucket (lowest to highest):</p>
+<div id="mom"></div>
+<p>In the top 20 model-ranked test pages, 19 declined by the label.</p>
+
+<h2>5. Limitations and honest framing</h2>
+<ul>
+<li>Observed, directional, decision-support only. Nothing here shows that a refresh causes recovery, and nothing here says anything about how a search engine ranks pages.</li>
+<li>The label is a proxy over a 17-day window. It cannot separate real decline from seasonality, consolidation, click loss from result-page changes, or noise. Pages with no rows after day 14 were counted as zero; some may be missing data.</li>
+<li>One month, one client-holdout split, 12 test clients. Precision@20 and @50 use few rows and are noisy; AUC is the steadier number.</li>
+<li>Two test clients supply 16 of the top 20 pages, and 8 clients supply the top 50 (largest share 40%).</li>
+<li>All top-50 pages share one reason code (already-falling momentum). The model mainly detects trend continuation.</li>
+<li>The baseline is a simple visibility rule that scored at chance, so the lift is measured against a weak baseline. The later sealed month was not evaluated.</li>
+</ul>
+
+<h2>6. Ranked recommendations (action playbook)</h2>
+<table>
+<tr><th>Queue</th><th>Rule</th><th>Reason code</th><th>Reviewer action</th></tr>
+<tr><td>Review now</td><td>Model rank 1-20</td><td>momentum_already_falling</td><td>Read the page, check for seasonality or a one-off spike before deciding refresh</td></tr>
+<tr><td>Monitor</td><td>Model rank 21-50</td><td>momentum_already_falling</td><td>Re-check next cycle</td></tr>
+<tr><td>Protect</td><td>Bottom 20% of scores among top-10% visibility pages</td><td>high_visibility_low_risk</td><td>Avoid unnecessary edits</td></tr>
+</table>
+<p class="note">Every top-20 row would carry the line "what would make this wrong": a seasonal dip or one-off spike in days 1-14 that recovers on its own. In the held-out test, 588 pages fell into Protect, 30 into Monitor and 20 into Review now.</p>
+
+<h2>7. Reproducibility</h2>
+<p>Repository: <a href="https://github.com/bhardwaj-ayush03/flyrank-internship">github.com/bhardwaj-ayush03/flyrank-internship</a>. Notebook: <a href="https://github.com/bhardwaj-ayush03/flyrank-internship/blob/main/work/notebooks/capstone.ipynb">work/notebooks/capstone.ipynb</a>. Earlier steps (framing, data contract, baseline) are in <code>work/notebooks/</code>. Fixed seed 42; the client-holdout split and all queries are in the notebook.</p>
+
+<h2>8. Acknowledgments and data credit</h2>
+<p>Built on the FlyRank ML Internship dataset, <a href="https://flyrank.ai" target="_blank" rel="noopener">https://flyrank.ai</a>. Thanks to the FlyRank internship team for the gated warehouse release and the starter materials.</p>
+
+<script>
+var C=0.295;
+function bars(id,rows,max){var h='';rows.forEach(function(r){var w=(r[1]/max*100).toFixed(1),b=id==='bars'?'<div class="basel" style="left:'+(C/max*100).toFixed(1)+'%"></div>':'';
+h+='<div class="bar-row"><div class="lab">'+r[0]+'</div><div class="bar-track"><div class="bar" style="width:'+w+'%"></div>'+b+'</div><div class="val">'+r[1].toFixed(2)+'</div></div>';});
+document.getElementById(id).innerHTML=h;}
+bars('bars',[['Baseline P@50',0.26],['Logistic P@50',0.18],['Tree P@50',0.88],['Grad. boost P@50',0.94]],1);
+bars('mom',[['Most negative',0.617],['Bucket 2',0.352],['Bucket 3',0.182],['Bucket 4',0.169],['Most positive',0.156]],1);
+</script>
+</body>
+</html>
