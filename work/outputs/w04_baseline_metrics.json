@@ -1,0 +1,8 @@
+{
+  "n_pages": 30000,
+  "base_declining_rate": 0.542,
+  "precision_at_20": 0.85,
+  "precision_at_50": 0.58,
+  "n_reason_code_fires": 6575,
+  "rule": "0.6*visibility + 0.4*staleness (observable inputs only)"
+}
